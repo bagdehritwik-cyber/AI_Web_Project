@@ -2,11 +2,15 @@ from flask import Flask, render_template, request, send_file, url_for, redirect
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
-from fpdf import FPDF
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 from datetime import datetime
 import os
-import webbrowser
-from threading import Timer
+import io
 
 app = Flask(__name__)
 
@@ -35,7 +39,7 @@ model.fit(X, y_encoded)
 
 latest_data = {}
 
-# ---------------- HOME ROUTE ----------------
+# ---------------- HOME ----------------
 @app.route("/", methods=["GET", "POST"])
 def home():
     global latest_data
@@ -80,49 +84,42 @@ def download():
     if not latest_data:
         return redirect(url_for("home"))
 
-    if not os.path.exists("Reports"):
-        os.makedirs("Reports")
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    elements = []
 
-    name = latest_data["name"]
-    symptoms = latest_data["symptoms"]
-    result = latest_data["result"]
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph("<b>Disease Prediction Report</b>", styles["Title"]))
+    elements.append(Spacer(1, 0.3 * inch))
 
-    file_path = f"Reports/{name.replace(' ','_')}_report.pdf"
+    elements.append(Paragraph(f"Patient Name: {latest_data['name']}", styles["Normal"]))
+    elements.append(Paragraph(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
+    elements.append(Spacer(1, 0.2 * inch))
 
-    pdf = FPDF()
-    pdf.add_page()
+    elements.append(Paragraph("<b>Selected Symptoms:</b>", styles["Heading3"]))
+    elements.append(Paragraph(", ".join(latest_data["symptoms"]), styles["Normal"]))
+    elements.append(Spacer(1, 0.2 * inch))
 
-    pdf.set_font("Arial", "B", 18)
-    pdf.cell(0, 10, "Disease Prediction Report", ln=True, align="C")
+    elements.append(Paragraph("<b>Top Predictions:</b>", styles["Heading3"]))
 
-    pdf.ln(10)
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, f"Patient Name: {name}", ln=True)
-    pdf.cell(0, 10, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+    for disease, confidence in latest_data["result"]:
+        elements.append(Paragraph(f"{disease} - {confidence}%", styles["Normal"]))
 
-    pdf.ln(5)
-    pdf.multi_cell(0, 8, "Selected Symptoms:\n" + ", ".join(symptoms))
+    elements.append(Spacer(1, 0.3 * inch))
+    elements.append(Paragraph(
+        "Disclaimer: This report is AI-generated and not a medical diagnosis.",
+        styles["Italic"]
+    ))
 
-    pdf.ln(5)
-    pdf.multi_cell(0, 8, "Top Predictions:")
+    doc.build(elements)
+    buffer.seek(0)
 
-    for disease, confidence in result:
-        pdf.multi_cell(0, 8, f"{disease} - {confidence}%")
+    return send_file(buffer,
+                     as_attachment=True,
+                     download_name="disease_report.pdf",
+                     mimetype="application/pdf")
 
-    pdf.ln(10)
-    pdf.set_font("Arial", "I", 10)
-    pdf.multi_cell(0, 8,
-        "Disclaimer: This report is AI-generated and not a medical diagnosis."
-    )
-
-    pdf.output(file_path)
-
-    return send_file(file_path, as_attachment=True)
-
-# ---------------- AUTO OPEN ----------------
-def open_browser():
-    webbrowser.open_new("http://127.0.0.1:5000/")
-
+# ---------------- RUN FOR RENDER ----------------
 if __name__ == "__main__":
-    Timer(1, open_browser).start()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
