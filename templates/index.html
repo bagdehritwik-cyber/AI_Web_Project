@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Disease Predictor</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .card {
+            background: white;
+            width: 600px;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        h2 {
+            text-align: center;
+            color: #2a5298;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .symptoms {
+            columns: 2;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        .predict {
+            background: #2a5298;
+            color: white;
+        }
+
+        .download {
+            background: #28a745;
+            color: white;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f4f8ff;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>AI Disease Predictor</h2>
+
+    <form method="POST">
+        <input type="text" name="name" placeholder="Enter Patient Name" required>
+
+        <div class="symptoms">
+            {% for symptom in symptoms %}
+                <input type="checkbox" name="symptoms" value="{{ symptom }}"> {{ symptom }}<br>
+            {% endfor %}
+        </div>
+
+        <button type="submit" class="predict">Predict Disease</button>
+    </form>
+
+    {% if result %}
+        <div class="result">
+            {% if result is string %}
+                <p>{{ result }}</p>
+            {% else %}
+                <h3>Top Predictions:</h3>
+                {% for disease, confidence in result %}
+                    <p><strong>{{ disease }}</strong> - {{ confidence }}%</p>
+                {% endfor %}
+
+                <a href="{{ url_for('download') }}">
+                    <button class="download">Download PDF Report</button>
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
